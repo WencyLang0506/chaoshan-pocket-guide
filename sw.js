@@ -1,5 +1,5 @@
-const CACHE = 'chaoshan-pocket-20261104-v3';
-const ASSETS = ['./','./index.html','./styles.css','./app.js','./travel-data.js','./icon.svg','./manifest.webmanifest'];
+const CACHE = 'chaoshan-pocket-20261104-v4';
+const ASSETS = ['./','./index.html','./styles.css?v=20261104-4','./app.js?v=20261104-4','./travel-data.js?v=20261104-4','./icon.svg','./manifest.webmanifest'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('chaoshan-pocket-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', event => {
