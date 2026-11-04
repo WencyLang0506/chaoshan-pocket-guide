@@ -41,8 +41,6 @@
   function card(item, compact = false) {
     const selected = pref(item.id);
     const notes = item.notes;
-    const noteLabel = notes.length ? (inWechat ? '原帖链接与打开方式' : '看小红书 ↗') : '搜小红书 ↗';
-    const noteUrl = notes.length ? (notes[0].mobileShareUrl || notes[0].url) : item.xhsSearch;
     const compareGroup = item.groups.includes('gancao') ? 'gancao' : item.groups.find(g => data.items.some(p => p.id !== item.id && p.groups.includes(g)));
     const badge = item.tag.includes('候选A') ? '生腌候选A' : item.tag.includes('候选B') ? '生腌候选B' : label[item.role];
     return `<article class="place-card ${selected.status === 'skip' ? 'is-skipped' : ''}" data-place="${escape(item.id)}">
@@ -52,10 +50,10 @@
       ${item.reference ? '<div class="reference-note">酒店旁找店参考 · 非水果店精确定位，营业待确认</div>' : ''}
       <p class="summary">${escape(item.summary || item.tag)}</p>
       <div class="hours">${clock}<span>${escape(item.hours)} <span class="platform-label">· 平台资料</span></span></div>
-      <div class="actions"><a class="nav-link" href="${href(item.amapApp || item.amap)}">${item.reference ? '去酒店参考点' : '高德地点'} ↗</a><a class="xhs-link" href="${href(noteUrl)}" data-note-link="${item.id}" data-note-index="0" ${notes[0]?.mobileShareUrl ? 'data-mobile-share="true"' : ''}>${noteLabel}</a></div>
-      <div class="link-fallbacks"><button data-action="map-help" data-id="${item.id}">复制店名地址</button><button data-action="note-help" data-id="${item.id}" data-note-index="0">${notes.length ? '笔记打不开？' : '复制搜索词'}</button></div>
+      <div class="actions"><a class="nav-link" href="${href(item.amapApp || item.amap)}">${item.reference ? '去酒店参考点' : '高德地点'} ↗</a>${notes.length ? `<a class="xhs-link" href="${href(notes[0].url)}" target="_blank" rel="noopener noreferrer">小红书原帖 ↗</a>` : ''}</div>
+      <div class="link-fallbacks"><button data-action="map-help" data-id="${item.id}">复制店名地址</button>${notes.length ? `<button data-action="note-help" data-id="${item.id}" data-note-index="0">备用打开方式</button>` : ''}</div>
       <div class="card-bottom">${compareGroup && !compact ? `<button class="compare-button" data-action="compare" data-group="${compareGroup}" data-id="${item.id}">看看${escape(data.mealGroups[compareGroup])}备选 →</button>` : '<span></span>'}<div class="status-buttons"><button class="status-button ${selected.status === 'done' ? 'active' : ''}" data-action="done" data-id="${item.id}" aria-pressed="${selected.status === 'done'}">${selected.status === 'done' ? '✓ 已去过' : '去过'}</button><button class="status-button ${selected.status === 'skip' ? 'active' : ''}" data-action="skip" data-id="${item.id}" aria-pressed="${selected.status === 'skip'}">${selected.status === 'skip' ? '已跳过' : '跳过'}</button></div></div>
-      <details class="place-details"><summary>地址与${notes.length ? notes.length + '篇笔记' : '详细提示'}</summary><p>${escape(item.address)}</p><p>${escape(item.summary)}</p>${notes.length ? `<div class="source-list">${notes.map((note,index) => `<a class="source-link" href="${href(note.mobileShareUrl || note.url)}" data-note-link="${item.id}" data-note-index="${index}" ${note.mobileShareUrl ? 'data-mobile-share="true"' : ''}>${escape(note.title)}<span>${escape(note.author)} · ${escape(note.published_at)}</span><small>${escape(note.summary)}</small></a>`).join('')}</div>` : '<p>尚未附上可核对的实吃原笔记。“搜小红书”打开检索，不代表该店已有好评依据。</p>'}</details>
+      <details class="place-details"><summary>地址与${notes.length ? notes.length + '篇笔记' : '详细提示'}</summary><p>${escape(item.address)}</p><p>${escape(item.summary)}</p>${notes.length ? `<div class="source-list">${notes.map(note => `<a class="source-link" href="${href(note.url)}" target="_blank" rel="noopener noreferrer">${escape(note.title)}<span>${escape(note.author)} · ${escape(note.published_at)}</span><small>${escape(note.summary)}</small></a>`).join('')}</div>` : ''}</details>
     </article>`;
   }
   function dayItems() { return data.items.filter(p => p.day === state.day); }
@@ -127,11 +125,11 @@
       content = `<p>${item.reference ? '这是酒店旁参考地标，不是水果店精确位置。' : '手机定位链接会传入这家店的地点编号。'}若未到地点，复制完整店名和地址，在高德中搜索核对。</p><div class="helper-actions"><a href="${href(item.amapApp || item.amap)}">打开高德地点 ↗</a><a href="${href(item.amapWeb || item.amap)}">看网页版位置 ↗</a><button data-action="copy-value" data-copy="text">复制店名地址</button></div>`;
     } else {
       const note = item.notes[index];
-      const keyword = new URL(item.xhsSearch).searchParams.get('keyword') || item.name;
-      copyValues = note ? { text: note.mobileShareText || `${note.title}\n作者：${note.author}\n${note.url}`, title: note.title, url: note.mobileShareUrl || note.url } : { text: keyword, title: keyword, url: item.xhsSearch };
-      $('link-helper-title').textContent = note ? '打开这篇笔记' : '去小红书搜索';
-      content = note ? `<h3>${escape(note.title)}</h3><p class="helper-author">作者：${escape(note.author)}</p><p>微信里跳 App 可能只到首页。请复制原帖链接，粘贴到 Safari 地址栏查看；也可用微信右上角菜单在浏览器打开这份攻略后再看笔记。</p>${note.mobileShareText ? '<p>这篇已有手机分享链接，用户已在浏览器打开原帖；App 内直达暂未解决。</p>' : '<p>这篇保留原网页来源，手机浏览器可用性尚未逐篇确认；也可复制标题，在小红书搜索并核对作者。</p>'}` : `<p>此处尚未附实吃原帖，只提供搜索词。复制后在小红书搜索，结果不代表推荐依据。</p>`;
-      content += `<div class="helper-actions"><button data-action="copy-value" data-copy="${note ? 'url' : 'text'}">${note ? '复制原帖链接' : '复制搜索词'}</button>${note ? '<button data-action="copy-value" data-copy="title">复制笔记标题</button>' : ''}${note?.mobileShareText ? '<button data-action="copy-value" data-copy="text">复制分享文案</button>' : ''}${!inWechat || !note ? `<a href="${href(copyValues.url)}">${note ? '查看原帖网页 ↗' : '打开小红书搜索 ↗'}</a>` : ''}</div>`;
+      if (!note) return;
+      copyValues = { text: note.mobileShareText || `${note.title}\n作者：${note.author}\n${note.url}`, title: note.title, url: note.mobileShareUrl || note.url };
+      $('link-helper-title').textContent = '打开这篇笔记';
+      content = `<h3>${escape(note.title)}</h3><p class="helper-author">作者：${escape(note.author)}</p><p>卡片按钮直接打开原帖网页。若小红书页面仍跳 App，可复制链接到 Safari 地址栏查看，或复制标题搜索并核对作者。</p>`;
+      content += `<div class="helper-actions"><button data-action="copy-value" data-copy="url">复制原帖链接</button><button data-action="copy-value" data-copy="title">复制笔记标题</button>${note.mobileShareText ? '<button data-action="copy-value" data-copy="text">复制分享文案</button>' : ''}<a href="${href(note.url)}" target="_blank" rel="noopener noreferrer">查看原帖网页 ↗</a></div>`;
     }
     $('link-helper-content').innerHTML = content + `<label class="manual-copy-label" for="manual-copy">也可长按选择并复制</label><textarea id="manual-copy" class="manual-copy" readonly></textarea>`;
     $('manual-copy').value = kind === 'map-help' || !item.notes[index] ? copyValues.text : copyValues.url;
@@ -151,13 +149,6 @@
     }
   }
   document.addEventListener('click', event => {
-    const noteLink = event.target.closest('a[data-note-link]');
-    if (noteLink && inWechat) {
-      event.preventDefault();
-      const index = Number(noteLink.dataset.noteIndex);
-      openLinkHelper('note-help',noteLink.dataset.noteLink,index);
-      return;
-    }
     const button = event.target.closest('button');
     if (!button) return;
     if (button.dataset.day) {
