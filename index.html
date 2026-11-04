@@ -25,6 +25,7 @@
     <div class="area-line"><span class="area-title">片区</span><div id="areas" class="areas" role="group" aria-label="选择片区"></div></div>
   </div>
   <main id="main" tabindex="-1">
+    <aside id="wechat-tip" class="wechat-tip" hidden>微信里只打开 App 首页？高德已使用手机定位链接；小红书可点“笔记打不开？”复制原帖或标题，也可用右上角菜单在 Safari 打开攻略。</aside>
     <section id="day-note" class="day-note"></section>
     <section id="browse-tools" class="browse-tools" aria-label="筛选候选">
       <div class="search-line"><label class="search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg><input id="search" type="search" placeholder="搜店名、菜品、地址" aria-label="搜店名、菜品、地址" autocomplete="off"></label><button id="type-button" class="type-button" aria-expanded="false">全部类型⌄</button></div>
@@ -38,6 +39,7 @@
   <nav id="modes" class="bottom-nav" aria-label="浏览方式"></nav>
   <dialog id="alternatives" class="alternatives"><div class="dialog-top"><div><span class="eyebrow">按胃口与排队选择</span><h2 id="alternatives-title">同餐候选</h2></div><button id="close-dialog" aria-label="关闭备选">×</button></div><p class="dialog-hint">是替换关系。小份共享，吃饱就跳过。</p><div id="alternatives-content"></div></dialog>
   <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="link-helper" class="link-helper" aria-labelledby="link-helper-title"><div class="dialog-top"><h2 id="link-helper-title">打开方式</h2><button id="close-link-helper" aria-label="关闭打开方式">×</button></div><div id="link-helper-content"></div><p id="copy-status" class="copy-status" role="status"></p></dialog>
   <noscript>请启用浏览器JavaScript，以使用日期和片区筛选。完整文字版可在钉钉文档查看。</noscript>
 </body>
 </html>

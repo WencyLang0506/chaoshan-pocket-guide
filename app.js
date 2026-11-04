@@ -8,6 +8,7 @@
   const $ = id => document.getElementById(id);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const storageKey = 'chaoshan-pocket-v1';
+  const inWechat = /MicroMessenger/i.test(navigator.userAgent);
   let preferences = {};
   try { preferences = JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch {}
   if (!preferences || typeof preferences !== 'object' || Array.isArray(preferences)) preferences = {};
@@ -51,9 +52,10 @@
       ${item.reference ? '<div class="reference-note">酒店旁找店参考 · 非水果店精确定位，营业待确认</div>' : ''}
       <p class="summary">${escape(item.summary || item.tag)}</p>
       <div class="hours">${clock}<span>${escape(item.hours)} <span class="platform-label">· 平台资料</span></span></div>
-      <div class="actions"><a class="nav-link" href="${href(item.amap)}" target="_blank" rel="noopener noreferrer">${item.reference ? '去酒店参考点' : '高德导航'} ↗</a><a class="xhs-link" href="${href(noteUrl)}" target="_blank" rel="noopener noreferrer">${noteLabel}</a></div>
+      <div class="actions"><a class="nav-link" href="${href(item.amapApp || item.amap)}">${item.reference ? '去酒店参考点' : '高德地点'} ↗</a><a class="xhs-link" href="${href(noteUrl)}" data-note-link="${item.id}" data-note-index="0">${noteLabel}</a></div>
+      <div class="link-fallbacks"><button data-action="map-help" data-id="${item.id}">复制店名地址</button><button data-action="note-help" data-id="${item.id}" data-note-index="0">${notes.length ? '笔记打不开？' : '复制搜索词'}</button></div>
       <div class="card-bottom">${compareGroup && !compact ? `<button class="compare-button" data-action="compare" data-group="${compareGroup}" data-id="${item.id}">看看${escape(data.mealGroups[compareGroup])}备选 →</button>` : '<span></span>'}<div class="status-buttons"><button class="status-button ${selected.status === 'done' ? 'active' : ''}" data-action="done" data-id="${item.id}" aria-pressed="${selected.status === 'done'}">${selected.status === 'done' ? '✓ 已去过' : '去过'}</button><button class="status-button ${selected.status === 'skip' ? 'active' : ''}" data-action="skip" data-id="${item.id}" aria-pressed="${selected.status === 'skip'}">${selected.status === 'skip' ? '已跳过' : '跳过'}</button></div></div>
-      <details class="place-details"><summary>地址与${notes.length ? notes.length + '篇笔记' : '详细提示'}</summary><p>${escape(item.address)}</p><p>${escape(item.summary)}</p>${notes.length ? `<div class="source-list">${notes.map(note => `<a class="source-link" href="${href(note.url)}" target="_blank" rel="noopener noreferrer">${escape(note.title)}<span>${escape(note.author)} · ${escape(note.published_at)}</span><small>${escape(note.summary)}</small></a>`).join('')}</div>` : '<p>尚未附上可核对的实吃原笔记。“搜小红书”打开检索，不代表该店已有好评依据。</p>'}</details>
+      <details class="place-details"><summary>地址与${notes.length ? notes.length + '篇笔记' : '详细提示'}</summary><p>${escape(item.address)}</p><p>${escape(item.summary)}</p>${notes.length ? `<div class="source-list">${notes.map((note,index) => `<a class="source-link" href="${href(note.url)}" data-note-link="${item.id}" data-note-index="${index}">${escape(note.title)}<span>${escape(note.author)} · ${escape(note.published_at)}</span><small>${escape(note.summary)}</small></a>`).join('')}</div>` : '<p>尚未附上可核对的实吃原笔记。“搜小红书”打开检索，不代表该店已有好评依据。</p>'}</details>
     </article>`;
   }
   function dayItems() { return data.items.filter(p => p.day === state.day); }
@@ -114,7 +116,45 @@
     $('alternatives').querySelector('.dialog-hint').textContent = hint;
     $('alternatives').showModal();
   }
+  let copyValues = {};
+  function openLinkHelper(kind, id, index = 0) {
+    const item = byId.get(id);
+    if (!item) return;
+    let content;
+    if (kind === 'map-help') {
+      copyValues = { text: `${item.poiName || item.name}\n${item.address}`, title: item.poiName || item.name };
+      $('link-helper-title').textContent = item.name;
+      content = `<p>${item.reference ? '这是酒店旁参考地标，不是水果店精确位置。' : '手机定位链接会传入这家店的地点编号。'}若未到地点，复制完整店名和地址，在高德中搜索核对。</p><div class="helper-actions"><a href="${href(item.amapApp || item.amap)}">打开高德地点 ↗</a><a href="${href(item.amapWeb || item.amap)}">看网页版位置 ↗</a><button data-action="copy-value" data-copy="text">复制店名地址</button></div>`;
+    } else {
+      const note = item.notes[index];
+      const keyword = new URL(item.xhsSearch).searchParams.get('keyword') || item.name;
+      copyValues = note ? { text: `${note.title}\n作者：${note.author}\n${note.url}`, title: note.title, url: note.url } : { text: keyword, title: keyword, url: item.xhsSearch };
+      $('link-helper-title').textContent = note ? '打开这篇笔记' : '去小红书搜索';
+      content = note ? `<h3>${escape(note.title)}</h3><p class="helper-author">作者：${escape(note.author)}</p><p>微信里可能只唤起首页。先复制原帖链接，再切到小红书尝试识别；仍打不开时，复制标题搜索，核对作者。也可从微信右上角菜单用 Safari 打开攻略后再试。</p>` : `<p>此处尚未附实吃原帖，只提供搜索词。复制后在小红书搜索，结果不代表推荐依据。</p>`;
+      content += `<div class="helper-actions"><button data-action="copy-value" data-copy="${note ? 'url' : 'text'}">${note ? '复制原帖链接' : '复制搜索词'}</button>${note ? '<button data-action="copy-value" data-copy="title">复制笔记标题</button>' : ''}<a href="${href(copyValues.url)}">${note ? '继续打开原帖 ↗' : '打开小红书搜索 ↗'}</a></div>`;
+    }
+    $('link-helper-content').innerHTML = content + `<label class="manual-copy-label" for="manual-copy">也可长按选择并复制</label><textarea id="manual-copy" class="manual-copy" readonly></textarea>`;
+    $('manual-copy').value = copyValues.text;
+    $('copy-status').textContent = '';
+    $('link-helper').showModal();
+  }
+  async function copyValue(key) {
+    const value = copyValues[key];
+    if (!value) return;
+    $('manual-copy').value = value;
+    try {
+      await navigator.clipboard.writeText(value);
+      $('copy-status').textContent = '已复制，请切到对应 App 使用。';
+    } catch {
+      $('manual-copy').focus(); $('manual-copy').select();
+      $('copy-status').textContent = '浏览器未允许自动复制，请长按上面的文字复制。';
+    }
+  }
   document.addEventListener('click', event => {
+    const noteLink = event.target.closest('a[data-note-link]');
+    if (noteLink && inWechat) {
+      event.preventDefault(); openLinkHelper('note-help',noteLink.dataset.noteLink,Number(noteLink.dataset.noteIndex)); return;
+    }
     const button = event.target.closest('button');
     if (!button) return;
     if (button.dataset.day) {
@@ -127,6 +167,8 @@
     if (button.dataset.mode) { state.mode = button.dataset.mode; render(); window.scrollTo({top:0,behavior:'auto'}); return; }
     if (button.dataset.selection) { state.selection = button.dataset.selection; renderSaved(); return; }
     const action = button.dataset.action;
+    if (['map-help','note-help'].includes(action)) { openLinkHelper(action,button.dataset.id,Number(button.dataset.noteIndex || 0)); return; }
+    if (action === 'copy-value') { copyValue(button.dataset.copy); return; }
     if (action === 'reset-filters') { state.area = '全部'; state.role = 'all'; state.category = '全部类型'; state.search = ''; $('search').value = ''; state.mode='browse'; render(); return; }
     if (action === 'compare') { openCompare(button.dataset.group,button.dataset.id); return; }
     if (['want','done','skip'].includes(action)) {
@@ -148,8 +190,10 @@
   $('search').addEventListener('input', event => { state.search = event.target.value; renderBrowse(); });
   $('type-button').addEventListener('click', () => { $('types').hidden = !$('types').hidden; $('type-button').setAttribute('aria-expanded',String(!$('types').hidden)); });
   $('close-dialog').addEventListener('click', () => $('alternatives').close());
+  $('close-link-helper').addEventListener('click', () => $('link-helper').close());
   $('alternatives').addEventListener('click', event => { if (event.target === $('alternatives')) { const r = $('alternatives').getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) $('alternatives').close(); } });
   $('original-guide').href = data.document; $('document-link').href = data.document; $('map-link').href = data.map;
+  $('wechat-tip').hidden = !inWechat;
   render();
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});
 })();
