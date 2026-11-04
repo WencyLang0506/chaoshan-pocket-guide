@@ -41,7 +41,7 @@
   function card(item, compact = false) {
     const selected = pref(item.id);
     const notes = item.notes;
-    const noteLabel = notes.length ? '看小红书 ↗' : '搜小红书 ↗';
+    const noteLabel = notes.length ? (inWechat ? '原帖链接与打开方式' : '看小红书 ↗') : '搜小红书 ↗';
     const noteUrl = notes.length ? (notes[0].mobileShareUrl || notes[0].url) : item.xhsSearch;
     const compareGroup = item.groups.includes('gancao') ? 'gancao' : item.groups.find(g => data.items.some(p => p.id !== item.id && p.groups.includes(g)));
     const badge = item.tag.includes('候选A') ? '生腌候选A' : item.tag.includes('候选B') ? '生腌候选B' : label[item.role];
@@ -130,11 +130,11 @@
       const keyword = new URL(item.xhsSearch).searchParams.get('keyword') || item.name;
       copyValues = note ? { text: note.mobileShareText || `${note.title}\n作者：${note.author}\n${note.url}`, title: note.title, url: note.mobileShareUrl || note.url } : { text: keyword, title: keyword, url: item.xhsSearch };
       $('link-helper-title').textContent = note ? '打开这篇笔记' : '去小红书搜索';
-      content = note ? `<h3>${escape(note.title)}</h3><p class="helper-author">作者：${escape(note.author)}</p><p>${note.mobileShareUrl ? '已附上用户提供的 App 分享短链。可直接打开，或复制完整分享文案后切到小红书。' : '微信里可能只唤起首页。先复制原帖链接，再切到小红书尝试识别；仍打不开时，复制标题搜索，核对作者。也可从微信右上角菜单用 Safari 打开攻略后再试。'}</p>` : `<p>此处尚未附实吃原帖，只提供搜索词。复制后在小红书搜索，结果不代表推荐依据。</p>`;
-      content += `<div class="helper-actions"><button data-action="copy-value" data-copy="${note && !note.mobileShareUrl ? 'url' : 'text'}">${note ? (note.mobileShareUrl ? '复制分享文案' : '复制原帖链接') : '复制搜索词'}</button>${note ? '<button data-action="copy-value" data-copy="title">复制笔记标题</button>' : ''}<a href="${href(copyValues.url)}">${note ? '继续打开原帖 ↗' : '打开小红书搜索 ↗'}</a></div>`;
+      content = note ? `<h3>${escape(note.title)}</h3><p class="helper-author">作者：${escape(note.author)}</p><p>微信里跳 App 可能只到首页。请复制原帖链接，粘贴到 Safari 地址栏查看；也可用微信右上角菜单在浏览器打开这份攻略后再看笔记。</p>${note.mobileShareText ? '<p>这篇已有手机分享链接，用户已在浏览器打开原帖；App 内直达暂未解决。</p>' : '<p>这篇保留原网页来源，手机浏览器可用性尚未逐篇确认；也可复制标题，在小红书搜索并核对作者。</p>'}` : `<p>此处尚未附实吃原帖，只提供搜索词。复制后在小红书搜索，结果不代表推荐依据。</p>`;
+      content += `<div class="helper-actions"><button data-action="copy-value" data-copy="${note ? 'url' : 'text'}">${note ? '复制原帖链接' : '复制搜索词'}</button>${note ? '<button data-action="copy-value" data-copy="title">复制笔记标题</button>' : ''}${note?.mobileShareText ? '<button data-action="copy-value" data-copy="text">复制分享文案</button>' : ''}${!inWechat || !note ? `<a href="${href(copyValues.url)}">${note ? '查看原帖网页 ↗' : '打开小红书搜索 ↗'}</a>` : ''}</div>`;
     }
     $('link-helper-content').innerHTML = content + `<label class="manual-copy-label" for="manual-copy">也可长按选择并复制</label><textarea id="manual-copy" class="manual-copy" readonly></textarea>`;
-    $('manual-copy').value = copyValues.text;
+    $('manual-copy').value = kind === 'map-help' || !item.notes[index] ? copyValues.text : copyValues.url;
     $('copy-status').textContent = '';
     $('link-helper').showModal();
   }
@@ -144,7 +144,7 @@
     $('manual-copy').value = value;
     try {
       await navigator.clipboard.writeText(value);
-      $('copy-status').textContent = '已复制，请切到对应 App 使用。';
+      $('copy-status').textContent = key === 'url' ? '原帖链接已复制，请粘贴到 Safari 地址栏查看。' : key === 'title' ? '标题已复制，请在小红书搜索并核对作者。' : '已复制。';
     } catch {
       $('manual-copy').focus(); $('manual-copy').select();
       $('copy-status').textContent = '浏览器未允许自动复制，请长按上面的文字复制。';
@@ -152,8 +152,11 @@
   }
   document.addEventListener('click', event => {
     const noteLink = event.target.closest('a[data-note-link]');
-    if (noteLink && inWechat && !noteLink.dataset.mobileShare) {
-      event.preventDefault(); openLinkHelper('note-help',noteLink.dataset.noteLink,Number(noteLink.dataset.noteIndex)); return;
+    if (noteLink && inWechat) {
+      event.preventDefault();
+      const index = Number(noteLink.dataset.noteIndex);
+      openLinkHelper('note-help',noteLink.dataset.noteLink,index);
+      return;
     }
     const button = event.target.closest('button');
     if (!button) return;
